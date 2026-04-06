@@ -1,0 +1,17 @@
+name: pii-redactor
+version: "0.1.0"
+description: "A PII Redactor RL environment for sensitive data handling."
+environment_type: "text-processing"
+server:
+  port: 8000
+  docker:
+    image: "pii-redactor-env"
+    build_context: "."
+    dockerfile: "server/Dockerfile"
+tasks:
+  - id: easy-email
+    description: "Redact email addresses"
+  - id: medium-phone-cc
+    description: "Redact phone numbers and credit cards"
+  - id: hard-names-ssn
+    description: "Redact names and SSNs in natural language"

@@ -1,0 +1,2 @@
+[console_scripts]
+server = pii_redactor.server.app:main
