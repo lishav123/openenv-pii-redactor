@@ -1,7 +1,7 @@
 import re
 import random
 from uuid import uuid4
-from typing import List, Tuple
+from typing import List, Tuple, Any, Dict
 
 from openenv_core.env_server import Environment
 
@@ -14,13 +14,12 @@ except (ImportError, ValueError):
 class PiiRedactorEnvironment(Environment):
     """
     PII Redactor Environment.
-    Tasks:
-    - Easy: Redact emails.
-    - Medium: Redact phone numbers and credit cards.
-    - Hard: Redact Names and SSNs embedded in natural language.
     """
 
     SUPPORTS_CONCURRENT_SESSIONS: bool = True
+    
+    # 1. Explicitly define tasks so the hackathon grader can enumerate them!
+    TASKS = ["pii_easy", "pii_medium", "pii_hard"]
 
     EMAILS = ["john.doe@example.com", "jane_smith@gmail.com", "support@company.org", "dev.team@startup.io"]
     PHONES = ["(555) 123-4567", "555-987-6543", "555.000.1111", "5551234444"]
@@ -41,20 +40,33 @@ class PiiRedactorEnvironment(Environment):
 
     def __init__(self):
         self._state = None
-        self._task_levels = ["Easy", "Medium", "Hard"]
+        self._task_levels = self.TASKS
 
-    def _generate_task(self) -> Tuple[str, str, str]:
-        level = random.choice(self._task_levels)
+    # 2. Expose tasks via properties and methods (covers all OpenEnv evaluator patterns)
+    @property
+    def tasks(self) -> List[str]:
+        return self.TASKS
+
+    def get_tasks(self) -> List[str]:
+        return self.TASKS
+
+    def _generate_task(self, requested_task: str = None) -> Tuple[str, str, str, str]:
+        # If the grader asks for a specific task, give it to them
+        if requested_task and requested_task in self._task_levels:
+            level = requested_task
+        else:
+            level = random.choice(self._task_levels)
+            
         pii_items = []
         task_description = ""
 
-        if level == "Easy":
+        if level == "pii_easy":
             pii_items = [random.choice(self.EMAILS)]
             task_description = "Redact all email addresses in the following text."
-        elif level == "Medium":
+        elif level == "pii_medium":
             pii_items = [random.choice(self.PHONES), random.choice(self.CREDIT_CARDS)]
             task_description = "Redact all phone numbers and credit card numbers in the following text."
-        elif level == "Hard":
+        elif level == "pii_hard":
             pii_items = [random.choice(self.NAMES), random.choice(self.SSNS)]
             task_description = "Redact all full names and Social Security Numbers (SSNs) in the following text."
 
@@ -68,8 +80,14 @@ class PiiRedactorEnvironment(Environment):
 
         return raw_text, ground_truth, task_description, level
 
-    def reset(self) -> PiiRedactorObservation:
-        raw_text, ground_truth, task_description, level = self._generate_task()
+    # 3. Allow the grader to pass the task name into the reset function
+    def reset(self, *args, **kwargs) -> PiiRedactorObservation:
+        requested_task = kwargs.get("task") or kwargs.get("task_name")
+        if args and isinstance(args[0], str):
+            requested_task = args[0]
+            
+        raw_text, ground_truth, task_description, level = self._generate_task(requested_task)
+        
         self._state = PiiRedactorState(
             episode_id=str(uuid4()),
             step_count=0,
@@ -80,7 +98,7 @@ class PiiRedactorEnvironment(Environment):
         return PiiRedactorObservation(
             raw_text=raw_text,
             task_description=task_description,
-            reward=0.01, # FIX: Replaced 0.0 with 0.01
+            reward=0.01,
             done=False
         )
 
@@ -91,7 +109,7 @@ class PiiRedactorEnvironment(Environment):
         gt = self._state.ground_truth
         
         if pred == gt:
-            reward = 0.99 # FIX: Replaced 1.0 with 0.99
+            reward = 0.99
         else:
             gt_parts = gt.split("[REDACTED]")
             pred_parts = pred.split("[REDACTED]")
@@ -100,13 +118,11 @@ class PiiRedactorEnvironment(Environment):
                 matches = sum(1 for g, p in zip(gt_parts, pred_parts) if g == p)
                 reward = matches / len(gt_parts)
             else:
-                # Penalize for wrong number of redactions
                 reward = max(0.01, 0.5 * (1.0 - abs(len(gt_parts) - len(pred_parts)) / max(len(gt_parts), len(pred_parts))))
 
-        # FINAL SAFETY CLAMP: Guarantees the reward is strictly between (0, 1)
+        # STRICT SAFETY CLAMP
         reward = max(0.01, min(0.99, float(reward)))
-
-        done = True # Single step environment for this task
+        done = True
         
         return PiiRedactorObservation(
             raw_text=self._state.raw_text,
