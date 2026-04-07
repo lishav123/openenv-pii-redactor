@@ -43,7 +43,7 @@ python server/app.py
 # Set environment variables
 export API_BASE_URL="http://localhost:8000"
 export MODEL_NAME="gpt-3.5-turbo"
-export HF_TOKEN="your-huggingface-token"
+export API_KEY="your-api-key"
 
 # Run inference
 python inference.py
