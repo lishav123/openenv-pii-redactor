@@ -4,12 +4,12 @@ from client import PiiRedactorEnv
 from models import PiiRedactorAction
 
 def main():
-    # Grab from environment, respecting the grader's specific variable names
+    # 1. Defaults ARE set for URL and Model
     api_base_url = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
     model_name = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
     
-    # FIX: Look for the grader's API_KEY first, fallback to HF_TOKEN for local testing
-    api_key = os.getenv("API_KEY") or os.getenv("HF_TOKEN") or "sk-dummy"
+    # 2. NO defaults for the token. Look for the grader's API_KEY, fallback to HF_TOKEN
+    api_key = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
 
     client = OpenAI(
         base_url=api_base_url,
