@@ -66,8 +66,16 @@ def main():
         print(f"[STEP] step={steps_taken+1} action=null reward=0.00 done=true error='{error_msg}'", flush=True)
     
     finally:
+        # Calculate the final score (average of all rewards)
+        if rewards:
+            final_score = sum(rewards) / len(rewards)
+        else:
+            final_score = 0.00
+            
         rewards_str = ",".join(f"{r:.2f}" for r in rewards) if rewards else "0.00"
-        print(f"[END] success={str(success).lower()} steps={max(steps_taken, 1)} rewards={rewards_str}", flush=True)
+        
+        # FIX: Added the 'score={final_score:.3f}' field to match their strict regex!
+        print(f"[END] success={str(success).lower()} steps={max(steps_taken, 1)} score={final_score:.3f} rewards={rewards_str}", flush=True)
 
 if __name__ == "__main__":
     main()
