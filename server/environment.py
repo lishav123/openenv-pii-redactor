@@ -11,7 +11,6 @@ except (ImportError, ValueError):
     from models import PiiRedactorAction, PiiRedactorObservation, PiiRedactorState
 
 
-
 class PiiRedactorEnvironment(Environment):
     """
     PII Redactor Environment.
@@ -81,38 +80,19 @@ class PiiRedactorEnvironment(Environment):
         return PiiRedactorObservation(
             raw_text=raw_text,
             task_description=task_description,
-            reward=0.0,
+            reward=0.01, # FIX: Replaced 0.0 with 0.01
             done=False
         )
 
     def step(self, action: PiiRedactorAction) -> PiiRedactorObservation:
         self._state.step_count += 1
         
-        # Reward Function (0.0 to 1.0)
-        # Reward partial progress (+ points for correctly redacted items, - points for hallucinating or deleting non-PII text).
-        
         pred = action.redacted_text
         gt = self._state.ground_truth
         
-        # Calculate Reward using a simple similarity metric but penalizing deviations from the non-PII parts
         if pred == gt:
-            reward = 1.0
+            reward = 0.99 # FIX: Replaced 1.0 with 0.99
         else:
-            # Basic overlap reward
-            # Count how many [REDACTED] are correctly placed
-            pred_redacted_count = pred.count("[REDACTED]")
-            gt_redacted_count = gt.count("[REDACTED]")
-            
-            # Simple heuristic:
-            # 1. Start with 1.0
-            # 2. Subtract points for each mismatch in characters that should NOT be redacted
-            # 3. Subtract points for missing [REDACTED] or extra [REDACTED]
-            
-            # For simplicity in this demo, we'll use a character-level accuracy on non-redacted parts
-            # plus a penalty for incorrect redactions.
-            
-            # Actually, let's do something more robust:
-            # Split by [REDACTED] and compare the parts
             gt_parts = gt.split("[REDACTED]")
             pred_parts = pred.split("[REDACTED]")
             
@@ -121,7 +101,10 @@ class PiiRedactorEnvironment(Environment):
                 reward = matches / len(gt_parts)
             else:
                 # Penalize for wrong number of redactions
-                reward = max(0.0, 0.5 * (1.0 - abs(len(gt_parts) - len(pred_parts)) / max(len(gt_parts), len(pred_parts))))
+                reward = max(0.01, 0.5 * (1.0 - abs(len(gt_parts) - len(pred_parts)) / max(len(gt_parts), len(pred_parts))))
+
+        # FINAL SAFETY CLAMP: Guarantees the reward is strictly between (0, 1)
+        reward = max(0.01, min(0.99, float(reward)))
 
         done = True # Single step environment for this task
         
